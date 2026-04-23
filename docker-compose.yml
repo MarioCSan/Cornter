@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: vtm-backend
+    ports:
+      - "5000:8080"
+    volumes:
+      - ./data:/app/data
+      - ./videos:/videos
+    environment:
+      - DATA_PATH=/app/data
+      - VIDEO_PATH=/videos
+      - ASPNETCORE_ENVIRONMENT=Production
+    networks:
+      - cornter-net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: vtm-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - cornter-net
+    restart: unless-stopped
+
+networks:
+  cornter-net:
+    driver: bridge
+
+volumes:
+  data:
+  videos:

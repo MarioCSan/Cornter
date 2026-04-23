@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+/bin/
+/obj/
+/.vs/
+
+# Build output
+dist/
+publish/
+*.nupkg
+
+# Database
+data/videos.db*
+
+# Videos
+videos/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Thumbnails cache
+videos/thumbnails/
