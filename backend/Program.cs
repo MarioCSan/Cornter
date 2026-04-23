@@ -4,6 +4,12 @@ using VideoTravelManager.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Kestrel to accept large uploads
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxRequestBodySize = null; // Unlimited
+});
+
 var dataPath = Environment.GetEnvironmentVariable("DATA_PATH") ?? "./data";
 Directory.CreateDirectory(dataPath);
 
@@ -21,6 +27,7 @@ builder.Services.AddScoped<IThumbnailService, ThumbnailService>();
 builder.Services.AddScoped<IVideoRecommendationService, VideoRecommendationService>();
 
 builder.Services.AddControllers();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
