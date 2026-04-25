@@ -235,7 +235,13 @@ public class VideosController : ControllerBase
         }
 
         var thumbnailDir = Path.Combine(_videoDir, "thumbnails");
-        await _thumbnailService.GenerateThumbnailAsync(filePath, thumbnailDir);
+        var thumbnailPath = await _thumbnailService.GenerateThumbnailAsync(filePath, thumbnailDir);
+        if (thumbnailPath != null)
+        {
+            video.ThumbnailPath = thumbnailPath;
+            _context.Videos.Update(video);
+            await _context.SaveChangesAsync();
+        }
 
         return CreatedAtAction(nameof(GetVideo), new { id = video.Id }, MapToDto(video));
     }
@@ -255,8 +261,14 @@ public class VideosController : ControllerBase
 
         foreach (var video in importedVideos)
         {
-            await _thumbnailService.GenerateThumbnailAsync(video.FilePath, thumbnailDir);
+            var thumbnailPath = await _thumbnailService.GenerateThumbnailAsync(video.FilePath, thumbnailDir);
+            if (thumbnailPath != null)
+            {
+                video.ThumbnailPath = thumbnailPath;
+                _context.Videos.Update(video);
+            }
         }
+        await _context.SaveChangesAsync();
 
         return Ok(importedVideos.Select(MapToDto).ToList());
     }
@@ -275,8 +287,14 @@ public class VideosController : ControllerBase
 
         foreach (var video in importedVideos)
         {
-            await _thumbnailService.GenerateThumbnailAsync(video.FilePath, thumbnailDir);
+            var thumbnailPath = await _thumbnailService.GenerateThumbnailAsync(video.FilePath, thumbnailDir);
+            if (thumbnailPath != null)
+            {
+                video.ThumbnailPath = thumbnailPath;
+                _context.Videos.Update(video);
+            }
         }
+        await _context.SaveChangesAsync();
 
         return Ok(importedVideos.Select(MapToDto).ToList());
     }
