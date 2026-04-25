@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Video } from '../types/video';
-import { videoService } from '../services/api';
+import { videoService, categoryService } from '../services/api';
 
 export function ImportPage() {
   const [method, setMethod] = useState<'upload' | 'folder'>('upload');
@@ -10,6 +10,8 @@ export function ImportPage() {
   const [importedVideos, setImportedVideos] = useState<Video[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<FileList | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   const handleImportDefaultFolder = async () => {
     setImportingDefault(true);
@@ -25,6 +27,29 @@ export function ImportPage() {
       console.error(error);
     } finally {
       setImportingDefault(false);
+    }
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      setMessage({ type: 'error', text: 'Category name cannot be empty' });
+      return;
+    }
+
+    setCreatingCategory(true);
+    setMessage(null);
+
+    try {
+      await categoryService.create(newCategoryName);
+      setMessage({ type: 'success', text: `Category "${newCategoryName}" created!` });
+      setNewCategoryName('');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to create category';
+      setMessage({ type: 'error', text: errorMsg });
+      console.error(error);
+    } finally {
+      setCreatingCategory(false);
     }
   };
 
@@ -128,6 +153,29 @@ export function ImportPage() {
       )}
 
       <div className="space-y-6">
+        <div className="bg-dark-800 p-6 rounded-lg space-y-4">
+          <h2 className="text-xl font-bold text-white">Create Category</h2>
+          <form onSubmit={handleCreateCategory} className="flex gap-2">
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="e.g., Sports, Boat, Zurich..."
+              className="flex-1 px-4 py-2 bg-dark-700 text-white rounded border border-dark-600 focus:border-blue-500 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={creatingCategory}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded font-medium transition-colors whitespace-nowrap"
+            >
+              {creatingCategory ? 'Creating...' : 'Create'}
+            </button>
+          </form>
+          <p className="text-xs text-gray-400">
+            Create categories first, then you can assign them to your videos.
+          </p>
+        </div>
+
         <button
           onClick={handleImportDefaultFolder}
           disabled={importingDefault}
@@ -190,10 +238,10 @@ export function ImportPage() {
               <label className="block text-white font-medium mb-2">Select Folder with Videos</label>
               <input
                 type="file"
-                webkitdirectory="true"
                 multiple
                 onChange={handleFolderSelect}
                 className="w-full px-4 py-2 bg-dark-700 text-white rounded border border-dark-600 focus:border-blue-500 focus:outline-none"
+                {...({ webkitdirectory: true } as any)}
               />
               <p className="text-xs text-gray-400 mt-2">
                 Select a folder to import all video files. Supports: mp4, mov, mkv, avi, webm
