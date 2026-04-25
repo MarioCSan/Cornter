@@ -93,10 +93,15 @@ export const videoService = {
     return res.json();
   },
 
-  async browseFolders(path?: string): Promise<{ currentPath: string; parentPath: string; folders: Array<{ name: string; path: string }> }> {
-    const params = path ? `?path=${encodeURIComponent(path)}` : '';
-    const res = await fetch(`${API_BASE}/videos/folders/browse${params}`);
-    if (!res.ok) throw new Error('Failed to browse folders');
+  async importDefaultFolder(): Promise<Video[]> {
+    const res = await fetch(`${API_BASE}/videos/import-default-folder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(error || 'Failed to import videos');
+    }
     return res.json();
   }
 };

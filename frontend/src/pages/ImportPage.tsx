@@ -1,30 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Video } from '../types/video';
 import { videoService } from '../services/api';
-
-interface FolderItem {
-  name: string;
-  path: string;
-}
-
-interface FolderBrowse {
-  currentPath: string;
-  parentPath: string;
-  folders: FolderItem[];
-}
 
 export function ImportPage() {
   const [method, setMethod] = useState<'upload' | 'folder'>('upload');
   const [uploading, setUploading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importingDefault, setImportingDefault] = useState(false);
   const [importedVideos, setImportedVideos] = useState<Video[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<FileList | null>(null);
 
-  // Folder picker state
-  const [browsing, setBrowsing] = useState(false);
-  const [browseLoading, setBrowseLoading] = useState(false);
-  const [folderData, setFolderData] = useState<FolderBrowse | null>(null);
-  const [selectedPath, setSelectedPath] = useState('');
+  const handleImportDefaultFolder = async () => {
+    setImportingDefault(true);
+    setMessage(null);
+
+    try {
+      const videos = await videoService.importDefaultFolder();
+      setImportedVideos(videos);
+      setMessage({ type: 'success', text: `Imported ${videos.length} video(s) from server!` });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Import failed';
+      setMessage({ type: 'error', text: errorMsg });
+      console.error(error);
+    } finally {
+      setImportingDefault(false);
+    }
+  };
 
   const handleFileUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,8 +44,9 @@ export function ImportPage() {
     try {
       const file = fileInput.files[0];
 
-      const supportedTypes = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/x-msvideo', 'video/webm'];
-      if (!supportedTypes.includes(file.type) && !file.name.match(/\.(mp4|mov|mkv|avi|webm)$/i)) {
+      const supportedExts = ['.mp4', '.mov', '.mkv', '.avi', '.webm'];
+      const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+      if (!supportedExts.includes(fileExt)) {
         setMessage({ type: 'error', text: 'Unsupported file type. Supported: mp4, mov, mkv, avi, webm' });
         setUploading(false);
         return;
@@ -62,44 +65,45 @@ export function ImportPage() {
     }
   };
 
-  useEffect(() => {
-    if (browsing && !folderData) {
-      loadFolders();
-    }
-  }, [browsing]);
-
-  const loadFolders = async (path?: string) => {
-    setBrowseLoading(true);
-    try {
-      const data = await videoService.browseFolders(path);
-      setFolderData(data);
-      setSelectedPath(data.currentPath);
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to load folder list' });
-      console.error(error);
-    } finally {
-      setBrowseLoading(false);
+  const handleFolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) {
+      setSelectedFolder(e.target.files);
     }
   };
 
-  const handleNavigateFolder = async (path: string) => {
-    await loadFolders(path);
-  };
-
-  const handleSelectFolder = async () => {
-    if (!selectedPath) {
-      setMessage({ type: 'error', text: 'Please select a folder' });
+  const handleImportFolder = async () => {
+    if (!selectedFolder?.length) {
+      setMessage({ type: 'error', text: 'Please select a folder with videos' });
       return;
     }
 
-    setBrowsing(false);
     setImporting(true);
     setMessage(null);
 
     try {
-      const videos = await videoService.importFolder(selectedPath);
-      setImportedVideos(videos);
-      setMessage({ type: 'success', text: `Imported ${videos.length} video(s)!` });
+      const videos: Video[] = [];
+      for (let i = 0; i < selectedFolder.length; i++) {
+        const file = selectedFolder[i];
+        const supportedExts = ['.mp4', '.mov', '.mkv', '.avi', '.webm'];
+        const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+
+        if (supportedExts.includes(fileExt)) {
+          try {
+            const video = await videoService.upload(file);
+            videos.push(video);
+          } catch (err) {
+            console.error(`Failed to import ${file.name}:`, err);
+          }
+        }
+      }
+
+      if (videos.length === 0) {
+        setMessage({ type: 'error', text: 'No valid video files found in the selected folder' });
+      } else {
+        setImportedVideos(videos);
+        setMessage({ type: 'success', text: `Imported ${videos.length} video(s)!` });
+        setSelectedFolder(null);
+      }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Import failed';
       setMessage({ type: 'error', text: errorMsg });
@@ -124,27 +128,38 @@ export function ImportPage() {
       )}
 
       <div className="space-y-6">
-        <div className="flex gap-4 mb-6">
-          <button
-            onClick={() => setMethod('upload')}
-            className={`px-6 py-2 rounded font-medium transition-colors ${
-              method === 'upload'
-                ? 'bg-blue-600 text-white'
-                : 'bg-dark-700 text-gray-300 hover:bg-dark-600'
-            }`}
-          >
-            Upload File
-          </button>
-          <button
-            onClick={() => setMethod('folder')}
-            className={`px-6 py-2 rounded font-medium transition-colors ${
-              method === 'folder'
-                ? 'bg-blue-600 text-white'
-                : 'bg-dark-700 text-gray-300 hover:bg-dark-600'
-            }`}
-          >
-            Import Folder
-          </button>
+        <button
+          onClick={handleImportDefaultFolder}
+          disabled={importingDefault}
+          className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:bg-gray-600 text-white rounded font-medium transition-colors"
+        >
+          {importingDefault ? 'Importing...' : '📂 Import Videos from Server (/videos)'}
+        </button>
+
+        <div className="border-t border-dark-700 pt-6">
+          <p className="text-gray-400 text-sm mb-4">Or choose another method:</p>
+          <div className="flex gap-4">
+            <button
+              onClick={() => setMethod('upload')}
+              className={`flex-1 px-6 py-2 rounded font-medium transition-colors ${
+                method === 'upload'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-dark-700 text-gray-300 hover:bg-dark-600'
+              }`}
+            >
+              Upload File
+            </button>
+            <button
+              onClick={() => setMethod('folder')}
+              className={`flex-1 px-6 py-2 rounded font-medium transition-colors ${
+                method === 'folder'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-dark-700 text-gray-300 hover:bg-dark-600'
+              }`}
+            >
+              Import Folder
+            </button>
+          </div>
         </div>
 
         {method === 'upload' ? (
@@ -171,98 +186,36 @@ export function ImportPage() {
           </form>
         ) : (
           <div className="bg-dark-800 p-6 rounded-lg space-y-4">
-            {!browsing ? (
-              <>
-                <div>
-                  <label className="block text-white font-medium mb-2">Select Folder</label>
-                  <input
-                    type="text"
-                    value={selectedPath}
-                    readOnly
-                    placeholder="Click 'Browse' to select a folder"
-                    className="w-full px-4 py-2 bg-dark-700 text-white rounded border border-dark-600 focus:outline-none cursor-not-allowed"
-                  />
-                  <p className="text-xs text-gray-400 mt-2">
-                    Choose a folder containing videos. Scans recursively.
-                  </p>
-                </div>
+            <div>
+              <label className="block text-white font-medium mb-2">Select Folder with Videos</label>
+              <input
+                type="file"
+                webkitdirectory="true"
+                multiple
+                onChange={handleFolderSelect}
+                className="w-full px-4 py-2 bg-dark-700 text-white rounded border border-dark-600 focus:border-blue-500 focus:outline-none"
+              />
+              <p className="text-xs text-gray-400 mt-2">
+                Select a folder to import all video files. Supports: mp4, mov, mkv, avi, webm
+              </p>
+            </div>
 
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setBrowsing(true)}
-                    className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded font-medium transition-colors"
-                  >
-                    Browse
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSelectFolder}
-                    disabled={importing || !selectedPath}
-                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded font-medium transition-colors"
-                  >
-                    {importing ? 'Importing...' : 'Import Folder'}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="mb-4">
-                  <h3 className="text-white font-medium mb-2">Current: {selectedPath || 'Loading...'}</h3>
-                </div>
-
-                {browseLoading ? (
-                  <div className="text-gray-400 py-8 text-center">Loading folders...</div>
-                ) : folderData ? (
-                  <>
-                    {selectedPath !== folderData.parentPath && (
-                      <button
-                        type="button"
-                        onClick={() => handleNavigateFolder(folderData.parentPath)}
-                        className="w-full text-left px-4 py-3 bg-dark-700 hover:bg-dark-600 text-blue-400 rounded transition-colors flex items-center gap-2"
-                      >
-                        <span>↑</span> Go Up
-                      </button>
-                    )}
-
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {folderData.folders.length === 0 ? (
-                        <div className="text-gray-400 text-sm py-4">No folders found</div>
-                      ) : (
-                        folderData.folders.map(folder => (
-                          <button
-                            key={folder.path}
-                            type="button"
-                            onClick={() => handleNavigateFolder(folder.path)}
-                            className="w-full text-left px-4 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded transition-colors flex items-center gap-2"
-                          >
-                            <span>📁</span> {folder.name}
-                          </button>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="flex gap-2 pt-4 border-t border-dark-600">
-                      <button
-                        type="button"
-                        onClick={() => setBrowsing(false)}
-                        className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSelectFolder}
-                        disabled={importing}
-                        className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded font-medium transition-colors"
-                      >
-                        {importing ? 'Importing...' : 'Import from Here'}
-                      </button>
-                    </div>
-                  </>
-                ) : null}
-              </>
+            {selectedFolder && (
+              <div className="bg-dark-700 p-3 rounded">
+                <p className="text-sm text-gray-300">
+                  📁 {selectedFolder.length} file(s) selected
+                </p>
+              </div>
             )}
+
+            <button
+              type="button"
+              onClick={handleImportFolder}
+              disabled={importing || !selectedFolder?.length}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded font-medium transition-colors"
+            >
+              {importing ? 'Importing...' : 'Import Videos'}
+            </button>
           </div>
         )}
 

@@ -261,6 +261,26 @@ public class VideosController : ControllerBase
         return Ok(importedVideos.Select(MapToDto).ToList());
     }
 
+    [HttpPost("import-default-folder")]
+    public async Task<ActionResult<List<VideoDto>>> ImportDefaultFolder()
+    {
+        var defaultPath = _videoDir;
+
+        if (!Directory.Exists(defaultPath))
+            return BadRequest("Videos folder does not exist");
+
+        var importedVideos = await _scannerService.ScanFolderAsync(defaultPath, _context);
+
+        var thumbnailDir = Path.Combine(_videoDir, "thumbnails");
+
+        foreach (var video in importedVideos)
+        {
+            await _thumbnailService.GenerateThumbnailAsync(video.FilePath, thumbnailDir);
+        }
+
+        return Ok(importedVideos.Select(MapToDto).ToList());
+    }
+
     [HttpGet("folders/browse")]
     public ActionResult<FolderBrowseDto> BrowseFolders([FromQuery] string? path)
     {
