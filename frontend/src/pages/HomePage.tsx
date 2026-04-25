@@ -101,14 +101,17 @@ export function HomePage() {
 
       {!randomVideos && (
         <>
-          <VideoGrid videos={mostViewed} title="Most Viewed" />
-          <VideoGrid videos={latest} title="Recently Added" />
-
-          {searchQuery || selectedCategories.length > 0 ? (
-            <VideoGrid videos={filtered} title="Search Results" />
-          ) : (
-            <VideoGrid videos={filtered} title="All Videos" />
+          {!(searchQuery || selectedCategories.length > 0) && (
+            <>
+              <VideoGrid videos={mostViewed} title="Most Viewed" />
+              <VideoGrid videos={latest} title="Recently Added" />
+            </>
           )}
+
+          <VideoGrid
+            videos={filtered}
+            title={searchQuery || selectedCategories.length > 0 ? "Search Results" : "All Videos"}
+          />
 
           <div className="flex gap-2 justify-center mt-8">
             <button
