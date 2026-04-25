@@ -193,6 +193,11 @@ public class VideosController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest("No file provided");
 
+        var supportedExtensions = new[] { ".mp4", ".mov", ".mkv", ".avi", ".webm" };
+        var fileExt = Path.GetExtension(file.FileName).ToLower();
+        if (!supportedExtensions.Contains(fileExt))
+            return BadRequest($"Unsupported file type: {fileExt}");
+
         Directory.CreateDirectory(_videoDir);
 
         var fileName = Path.GetFileName(file.FileName);
@@ -241,6 +246,9 @@ public class VideosController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Path))
             return BadRequest("Folder path is required");
 
+        if (!Directory.Exists(dto.Path))
+            return BadRequest("Folder path does not exist");
+
         var importedVideos = await _scannerService.ScanFolderAsync(dto.Path, _context);
 
         var thumbnailDir = Path.Combine(_videoDir, "thumbnails");
@@ -251,6 +259,39 @@ public class VideosController : ControllerBase
         }
 
         return Ok(importedVideos.Select(MapToDto).ToList());
+    }
+
+    [HttpGet("folders/browse")]
+    public ActionResult<FolderBrowseDto> BrowseFolders([FromQuery] string? path)
+    {
+        try
+        {
+            var startPath = string.IsNullOrWhiteSpace(path) ? Path.GetPathRoot(Directory.GetCurrentDirectory()) ?? "/" : path;
+
+            if (!Directory.Exists(startPath))
+                return BadRequest("Path does not exist");
+
+            var parentPath = Directory.GetParent(startPath)?.FullName ?? startPath;
+            var directories = Directory.GetDirectories(startPath)
+                .OrderBy(d => new DirectoryInfo(d).Name)
+                .Select(d => new FolderItemDto
+                {
+                    Name = new DirectoryInfo(d).Name,
+                    Path = d
+                })
+                .ToList();
+
+            return Ok(new FolderBrowseDto
+            {
+                CurrentPath = startPath,
+                ParentPath = parentPath,
+                Folders = directories
+            });
+        }
+        catch
+        {
+            return BadRequest("Unable to browse folder");
+        }
     }
 
     [HttpPut("{id}/categories")]

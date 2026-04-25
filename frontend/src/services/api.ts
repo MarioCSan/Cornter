@@ -86,7 +86,17 @@ export const videoService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path })
     });
-    if (!res.ok) throw new Error('Failed to import folder');
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(error || 'Failed to import folder');
+    }
+    return res.json();
+  },
+
+  async browseFolders(path?: string): Promise<{ currentPath: string; parentPath: string; folders: Array<{ name: string; path: string }> }> {
+    const params = path ? `?path=${encodeURIComponent(path)}` : '';
+    const res = await fetch(`${API_BASE}/videos/folders/browse${params}`);
+    if (!res.ok) throw new Error('Failed to browse folders');
     return res.json();
   }
 };
