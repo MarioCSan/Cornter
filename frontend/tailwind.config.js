@@ -18,6 +18,15 @@ export default {
           700: '#404040',
           800: '#202020',
           900: '#101010',
+        },
+        synthwave: {
+          bg: '#0a0e27',
+          'bg-light': '#16213e',
+          'bg-lighter': '#1f2937',
+          pink: '#ff006e',
+          purple: '#8338ec',
+          cyan: '#3a86ff',
+          neon: '#ffbe0b',
         }
       }
     },

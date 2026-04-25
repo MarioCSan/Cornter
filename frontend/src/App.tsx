@@ -8,7 +8,7 @@ import { SettingsPage } from './pages/SettingsPage';
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-dark-900">
+      <div className="min-h-screen bg-gradient-to-br from-[#0a0e27] via-[#1a0033] to-[#0f1a2e]">
         <Header />
         <main className="max-w-7xl mx-auto px-4 py-8">
           <Routes>

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Video } from '../types/video';
+import { Category } from '../types/category';
 import { videoService, categoryService } from '../services/api';
 
 export function ImportPage() {
@@ -12,6 +13,41 @@ export function ImportPage() {
   const [selectedFolder, setSelectedFolder] = useState<FileList | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [creatingCategory, setCreatingCategory] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [showCategories, setShowCategories] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (showCategories) {
+      loadCategories();
+    }
+  }, [showCategories]);
+
+  const loadCategories = async () => {
+    try {
+      const cats = await categoryService.getAll();
+      setCategories(cats);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
+
+  const handleDeleteCategory = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this category?')) return;
+
+    setDeletingCategoryId(id);
+    try {
+      await categoryService.delete(id);
+      setMessage({ type: 'success', text: 'Category deleted!' });
+      setCategories(categories.filter(c => c.id !== id));
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to delete category';
+      setMessage({ type: 'error', text: errorMsg });
+      console.error(error);
+    } finally {
+      setDeletingCategoryId(null);
+    }
+  };
 
   const handleImportDefaultFolder = async () => {
     setImportingDefault(true);
@@ -174,6 +210,39 @@ export function ImportPage() {
           <p className="text-xs text-gray-400">
             Create categories first, then you can assign them to your videos.
           </p>
+
+          <button
+            onClick={() => setShowCategories(!showCategories)}
+            className="w-full px-4 py-2 bg-dark-700 hover:bg-dark-600 text-white rounded font-medium transition-colors"
+          >
+            {showCategories ? 'Hide Categories' : 'Manage Categories'}
+          </button>
+
+          {showCategories && (
+            <div className="border-t border-dark-600 pt-4 space-y-2">
+              {categories.length === 0 ? (
+                <p className="text-gray-400 text-sm">No categories created yet</p>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {categories.map(cat => (
+                    <div
+                      key={cat.id}
+                      className="flex items-center justify-between bg-dark-700 p-3 rounded"
+                    >
+                      <span className="text-white">{cat.name}</span>
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id)}
+                        disabled={deletingCategoryId === cat.id}
+                        className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white text-sm rounded transition-colors"
+                      >
+                        {deletingCategoryId === cat.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <button
